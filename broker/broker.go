@@ -837,54 +837,35 @@ func (broker *Broker) processConnect(packet *packets.ConnectPacket, conn net.Con
 	return conNack
 }
 
-func (c *client) processConnack() {
+func (c *client) processPubrec(packet *packets.PubrecPacket, ctx context.Context, cancel context.CancelFunc) {
+	c.inflightMu.RLock()
+	ielem, found := c.inflight[packet.MessageID]
+	c.inflightMu.RUnlock()
+	if found {
+		if ielem.status == Publish {
+			ielem.status = PubRel
+			ielem.timestamp = time.Now().Unix()
+		} else if ielem.status == PubRel {
+			log.Error("Duplicated PUBREC PacketId", zap.Uint16("MessageID", packet.MessageID))
+		}
+	} else {
+		log.Error("The PUBREC PacketId is not found.", zap.Uint16("MessageID", packet.MessageID))
+	}
 
+	pubrel := packets.NewControlPacket(packets.Pubrel).(*packets.PubrelPacket)
+	pubrel.MessageID = packet.MessageID
+	if err := c.WriterPacket(pubrel, ctx, cancel); err != nil {
+		log.Error("send pubrel error, ", zap.Error(err), zap.String("ClientID", c.info.clientID))
+		return
+	}
 }
 
-func (c *client) processDisconnect() {
-
-}
-
-func (c *client) processPingReq() {
-
-}
-
-func (c *client) processPingResp() {
-
-}
-
-func (c *client) processPublish() {
-
-}
-
-func (c *client) processPuback() {
-
-}
-
-func (c *client) processPubcomp() {
-
-}
-
-func (c *client) processPubrec() {
-
-}
-
-func (c *client) processPubrel() {
-
-}
-
-func (c *client) processSubscribe() {
-
-}
-
-func (c *client) processSuback() {
-
-}
-
-func (c *client) processUnsubscribe() {
-
-}
-
-func (c *client) processUnsuback() {
-
+func (c *client) processPubrel(packet *packets.PubrelPacket, ctx context.Context, cancel context.CancelFunc) {
+	_ = c.pubRel(packet.MessageID)
+	pubcomp := packets.NewControlPacket(packets.Pubcomp).(*packets.PubcompPacket)
+	pubcomp.MessageID = packet.MessageID
+	if err := c.WriterPacket(pubcomp, ctx, cancel); err != nil {
+		log.Error("send pubcomp error, ", zap.Error(err), zap.String("ClientID", c.info.clientID))
+		return
+	}
 }

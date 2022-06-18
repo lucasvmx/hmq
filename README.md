@@ -1,6 +1,6 @@
-![build](https://img.shields.io/github/workflow/status/lucasvmx/hmq/Ubuntu%20build?label=Ubuntu&style=for-the-badge)
-![build](https://img.shields.io/github/workflow/status/lucasvmx/hmq/MacOS%20build?label=MacOS&style=for-the-badge)
-![build](https://img.shields.io/github/workflow/status/lucasvmx/hmq/Windows%20build?label=Windows&style=for-the-badge)
+![build](https://img.shields.io/github/workflow/status/lucasvmx/hmq/Ubuntu%20build?label=Ubuntu)
+![build](https://img.shields.io/github/workflow/status/lucasvmx/hmq/MacOS%20build?label=MacOS)
+![build](https://img.shields.io/github/workflow/status/lucasvmx/hmq/Windows%20build?label=Windows)
 
 # Free and High Performance MQTT Broker
 
