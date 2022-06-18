@@ -331,35 +331,10 @@ func ProcessClientMessage(msg *Message, ctx context.Context, cancel context.Canc
 		c.processPubAck(packet)
 	case *packets.PubrecPacket:
 		packet := clientPacket.(*packets.PubrecPacket)
-		c.inflightMu.RLock()
-		ielem, found := c.inflight[packet.MessageID]
-		c.inflightMu.RUnlock()
-		if found {
-			if ielem.status == Publish {
-				ielem.status = PubRel
-				ielem.timestamp = time.Now().Unix()
-			} else if ielem.status == PubRel {
-				log.Error("Duplicated PUBREC PacketId", zap.Uint16("MessageID", packet.MessageID))
-			}
-		} else {
-			log.Error("The PUBREC PacketId is not found.", zap.Uint16("MessageID", packet.MessageID))
-		}
-
-		pubrel := packets.NewControlPacket(packets.Pubrel).(*packets.PubrelPacket)
-		pubrel.MessageID = packet.MessageID
-		if err := c.WriterPacket(pubrel, ctx, cancel); err != nil {
-			log.Error("send pubrel error, ", zap.Error(err), zap.String("ClientID", c.info.clientID))
-			return
-		}
+		c.processPubrec(packet, ctx, cancel)
 	case *packets.PubrelPacket:
 		packet := clientPacket.(*packets.PubrelPacket)
-		_ = c.pubRel(packet.MessageID)
-		pubcomp := packets.NewControlPacket(packets.Pubcomp).(*packets.PubcompPacket)
-		pubcomp.MessageID = packet.MessageID
-		if err := c.WriterPacket(pubcomp, ctx, cancel); err != nil {
-			log.Error("send pubcomp error, ", zap.Error(err), zap.String("ClientID", c.info.clientID))
-			return
-		}
+		c.processPubrel(packet, ctx, cancel)
 	case *packets.PubcompPacket:
 		packet := clientPacket.(*packets.PubcompPacket)
 		c.inflightMu.Lock()
