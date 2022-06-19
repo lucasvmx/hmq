@@ -1,6 +1,7 @@
 ![build](https://img.shields.io/github/workflow/status/lucasvmx/hmq/Ubuntu%20build?label=Ubuntu)
 ![build](https://img.shields.io/github/workflow/status/lucasvmx/hmq/MacOS%20build?label=MacOS)
 ![build](https://img.shields.io/github/workflow/status/lucasvmx/hmq/Windows%20build?label=Windows)
+[![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=lucasvmx_hmq2&metric=alert_status)](https://sonarcloud.io/dashboard?id=lucasvmx_hmq2)
 
 # Free and High Performance MQTT Broker
 
