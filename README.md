@@ -11,10 +11,25 @@ for [eclipse paho client](https://github.com/eclipse?utf8=%E2%9C%93&q=mqtt&type=
 
 ## RUNNING
 
+##### 1 - clone repository
 ```bash
-$ go get github.com/lucasvmx/hmq
-$ cd $GOPATH/github.com/lucasvmx/hmq
-$ go run main.go
+git clone https://github.com/lucasvmx/hmq.git
+cd hmq
+```
+
+##### 2 - build docker image
+```bash
+sudo docker build -t hmq:latest
+```
+
+##### 3 - create container
+```bash
+docker container create --restart always --name hmq-broker --publish 1883:1883 hmq:latest
+```
+
+##### 4 - start container
+```bash
+docker container start hmq-broker
 ```
 
 ## Usage of hmq:
