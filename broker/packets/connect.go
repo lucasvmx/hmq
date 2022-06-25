@@ -145,7 +145,9 @@ func (c *ConnectPacket) Validate() byte {
 		// Bad reserved bit
 		return ErrProtocolViolation
 	}
-	if (c.ProtocolName == "MQIsdp" && c.ProtocolVersion != 3) || (c.ProtocolName == "MQTT" && c.ProtocolVersion != 4) {
+	if (c.ProtocolName == "MQIsdp" && c.ProtocolVersion != 3) ||
+		(c.ProtocolName == "MQTT" && c.ProtocolVersion != 4) ||
+		(c.ProtocolName == "MQTT" && c.ProtocolVersion != 5) {
 		// Mismatched or unsupported protocol version
 		return ErrRefusedBadProtocolVersion
 	}
