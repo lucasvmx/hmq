@@ -299,6 +299,16 @@ func decodeUint16(b io.Reader) (uint16, error) {
 	return binary.BigEndian.Uint16(num), nil
 }
 
+func decodeUint32(b io.Reader) (uint32, error) {
+	num := make([]byte, 4)
+	_, err := b.Read(num)
+	if err != nil {
+		return 0, err
+	}
+
+	return binary.BigEndian.Uint32(num), nil
+}
+
 func encodeUint16(num uint16) []byte {
 	bytesResult := make([]byte, 2)
 	binary.BigEndian.PutUint16(bytesResult, num)
