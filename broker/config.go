@@ -32,6 +32,7 @@ type Config struct {
 	TlsInfo  TLSInfo   `json:"tlsInfo"`
 	Debug    bool      `json:"debug"`
 	Plugin   Plugins   `json:"plugins"`
+	MqttVer  string    `json:"mqtt_ver"`
 }
 
 type Plugins struct {
@@ -64,6 +65,11 @@ var DefaultConfig *Config = &Config{
 
 var (
 	log = logger.Prod().Named("broker")
+)
+
+var (
+	MqttVersion311 = "v311"
+	MqttVersion5   = "v5"
 )
 
 func showHelp() {
@@ -101,6 +107,7 @@ func ConfigureConfig(args []string) (*Config, error) {
 	fs.StringVar(&configFile, "c", "", "config file for hmq")
 	fs.BoolVar(&config.Debug, "debug", false, "enable Debug logging.")
 	fs.BoolVar(&config.Debug, "d", false, "enable Debug logging.")
+	fs.StringVar(&config.MqttVer, "mqttversion", MqttVersion311, "MQTT version to be used (v5 or v311)")
 
 	fs.Bool("D", true, "enable Debug logging.")
 
@@ -135,6 +142,10 @@ func ConfigureConfig(args []string) (*Config, error) {
 
 	if err := config.check(); err != nil {
 		return nil, err
+	}
+
+	if config.MqttVer != MqttVersion311 && config.MqttVer == MqttVersion5 {
+		return nil, fmt.Errorf("Invalid MQTT version: '%v'. Please, use 'v311' or 'v5'", config.MqttVer)
 	}
 
 	return config, nil
