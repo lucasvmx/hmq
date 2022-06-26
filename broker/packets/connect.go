@@ -42,6 +42,11 @@ type ConnectPacket struct {
 	WillMessage      []byte
 	Username         string
 	Password         []byte
+
+	// Used in MQTT v5
+	PropertiesLen     byte
+	SessExpIntervalId byte
+	SessExpInterval   uint32
 }
 
 func (c *ConnectPacket) String() string {
@@ -131,6 +136,33 @@ func (c *ConnectPacket) Unpack(b io.Reader) error {
 		if err != nil {
 			return err
 		}
+	}
+
+	return nil
+}
+
+// UnpackV5 decodes the details of a ControlPacket after the fixed
+// header has been read (MQTT V5)
+func (c *ConnectPacket) UnpackV5(b io.Reader) error {
+
+	err := c.Unpack(b)
+	if err != nil {
+		return err
+	}
+
+	c.PropertiesLen, err = decodeByte(b)
+	if err != nil {
+		return err
+	}
+
+	c.SessExpIntervalId, err = decodeByte(b)
+	if err != nil {
+		return err
+	}
+
+	c.SessExpInterval, err = decodeUint32(b)
+	if err != nil {
+		return err
 	}
 
 	return nil
