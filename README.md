@@ -10,6 +10,8 @@
 Golang MQTT Broker, Version 3.1.1, and Compatible
 for [eclipse paho client](https://github.com/eclipse?utf8=%E2%9C%93&q=mqtt&type=&language=) and mosquitto-client
 
+:warning: Version 5 support is currently in development
+
 ## RUNNING
 
 ##### 1 - clone repository
