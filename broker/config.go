@@ -70,7 +70,12 @@ var (
 var (
 	MqttVersion311 = "v311"
 	MqttVersion5   = "v5"
+	mqttv5Enabled  = false
 )
+
+func IsV5Enabled() bool {
+	return mqttv5Enabled
+}
 
 func showHelp() {
 	fmt.Printf("%s\n", usageStr)
@@ -146,6 +151,10 @@ func ConfigureConfig(args []string) (*Config, error) {
 
 	if config.MqttVer != MqttVersion311 && config.MqttVer == MqttVersion5 {
 		return nil, fmt.Errorf("Invalid MQTT version: '%v'. Please, use 'v311' or 'v5'", config.MqttVer)
+	}
+
+	if config.MqttVer == MqttVersion5 {
+		mqttv5Enabled = true
 	}
 
 	return config, nil

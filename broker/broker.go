@@ -796,7 +796,7 @@ func (broker *Broker) processConnect(packet *packets.ConnectPacket, conn net.Con
 	// build CONNACK packet
 	conNack := packets.NewControlPacket(packets.Connack).(*packets.ConnackPacket)
 	conNack.SessionPresent = packet.CleanSession
-	conNack.ReturnCode = packet.Validate()
+	conNack.ReturnCode = packet.Validate(IsV5Enabled())
 
 	// Check if packet have been validated
 	if conNack.ReturnCode != packets.Accepted {
