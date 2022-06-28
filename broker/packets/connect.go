@@ -20,7 +20,31 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"reflect"
 )
+
+type ConnectProperty struct {
+	// Used in MQTT v5
+	PropertiesLen      byte
+	SessExpInterval    uint32
+	ReceiveMaximum     uint16
+	MaxPacketSize      uint32
+	TopicAliasMax      uint16
+	RequestRespInfo    byte
+	RequestProblemInfo byte
+	UserProperties     []string
+	AuthMethod         string
+	AuthData           []byte
+
+	// Control flags
+	bHasSessExp        bool
+	bHasRecvMax        bool
+	bHasTopicAliasMax  bool
+	bHasReqRespInfo    bool
+	bHasReqProblemInfo bool
+	bHasAuthMethod     bool
+	bHasAuthData       bool
+}
 
 // ConnectPacket is an internal representation of the fields of the
 // Connect MQTT packet
@@ -43,13 +67,30 @@ type ConnectPacket struct {
 	Username         string
 	Password         []byte
 
-	// Used in MQTT v5
-	PropertiesLen     byte
-	SessExpIntervalId byte
-	SessExpInterval   uint32
+	property *ConnectProperty
 }
 
+// ID's of User Properties
+var (
+	UserPropertyIds = map[string]int{
+
+		// CONNECT properties
+		"SessionExpiryIntervalId":      0x11,
+		"ReceiveMaximumId":             0x21,
+		"MaximumPacketSizeId":          0x27,
+		"TopicAliasMaximumId":          0x22,
+		"RequestResponseInformationId": 0x19,
+		"RequestProblemInformationId":  0x17,
+		"UserPropertyId":               0x26,
+		"AuthenticationMethodId":       0x15,
+		"AuthenticationDataId":         0x16,
+
+		// CONNECT payloads
+	}
+)
+
 func (c *ConnectPacket) String() string {
+
 	var psw string
 	if len(c.Password) > 0 {
 		psw = "<redacted>"
@@ -96,17 +137,17 @@ func (c *ConnectPacket) Unpack(b io.Reader) error {
 	if err != nil {
 		return err
 	}
-	options, err := decodeByte(b)
+	flags, err := decodeByte(b)
 	if err != nil {
 		return err
 	}
-	c.ReservedBit = 1 & options
-	c.CleanSession = 1&(options>>1) > 0
-	c.WillFlag = 1&(options>>2) > 0
-	c.WillQos = 3 & (options >> 3)
-	c.WillRetain = 1&(options>>5) > 0
-	c.PasswordFlag = 1&(options>>6) > 0
-	c.UsernameFlag = 1&(options>>7) > 0
+	c.ReservedBit = 1 & flags
+	c.CleanSession = 1&(flags>>1) > 0
+	c.WillFlag = 1&(flags>>2) > 0
+	c.WillQos = 3 & (flags >> 3)
+	c.WillRetain = 1&(flags>>5) > 0
+	c.PasswordFlag = 1&(flags>>6) > 0
+	c.UsernameFlag = 1&(flags>>7) > 0
 	c.Keepalive, err = decodeUint16(b)
 	if err != nil {
 		return err
@@ -141,8 +182,16 @@ func (c *ConnectPacket) Unpack(b io.Reader) error {
 	return nil
 }
 
-// UnpackV5 decodes the details of a ControlPacket after the fixed
-// header has been read (MQTT V5)
+func (cp *ConnectPacket) getNextFieldType(b io.Reader) int {
+
+	data, fail := decodeByte(b)
+	if fail != nil {
+		return 0
+	}
+
+	return int(data)
+}
+
 func (c *ConnectPacket) UnpackV5(b io.Reader) error {
 
 	err := c.Unpack(b)
@@ -150,17 +199,14 @@ func (c *ConnectPacket) UnpackV5(b io.Reader) error {
 		return err
 	}
 
-	c.PropertiesLen, err = decodeByte(b)
-	if err != nil {
-		return err
-	}
+	// Setup default property values
+	c.property.SessExpInterval = 0
+	c.property.TopicAliasMax = 0
+	c.property.RequestRespInfo = 1
+	c.property.RequestProblemInfo = 1
 
-	c.SessExpIntervalId, err = decodeByte(b)
-	if err != nil {
-		return err
-	}
-
-	c.SessExpInterval, err = decodeUint32(b)
+	// Unpack CONNECT properties
+	err = c.UnpackProperties(b)
 	if err != nil {
 		return err
 	}
@@ -168,8 +214,143 @@ func (c *ConnectPacket) UnpackV5(b io.Reader) error {
 	return nil
 }
 
+// UnpackProperties decodes the details of a ControlPacket after the fixed
+// header has been read (MQTT V5)
+func (c *ConnectPacket) UnpackProperties(b io.Reader) error {
+
+	var err error
+	var remainingLen byte
+
+	c.property.PropertiesLen, err = decodeByte(b)
+	if err != nil {
+		return err
+	}
+
+	// set remaining length
+	remainingLen = c.property.PropertiesLen
+
+	// field decoding loop
+	for remainingLen < c.property.PropertiesLen {
+
+		fieldType := c.getNextFieldType(b)
+
+		switch fieldType {
+		case UserPropertyIds["SessionExpiryIntervalId"]:
+
+			// This field can't be defined more than once
+			if c.property.bHasSessExp {
+				return ErrorProtocolViolation
+			}
+
+			c.property.SessExpInterval, err = decodeUint32(b)
+			if err != nil {
+				return err
+			}
+
+			remainingLen -= byte(reflect.TypeOf(c.property.SessExpInterval).Size())
+
+			break
+		case UserPropertyIds["ReceiveMaximumId"]:
+
+			// This field can't be defined more than once
+			if c.property.bHasRecvMax {
+				return ErrorProtocolViolation
+			}
+
+			c.property.ReceiveMaximum, err = decodeUint16(b)
+			if err != nil {
+				return err
+			}
+
+			remainingLen -= byte(reflect.TypeOf(c.property.ReceiveMaximum).Size())
+
+			break
+		case UserPropertyIds["MaximumPacketSizeId"]:
+			c.property.MaxPacketSize, err = decodeUint32(b)
+			if err != nil {
+				return err
+			}
+
+			remainingLen -= byte(reflect.TypeOf(c.property.MaxPacketSize).Size())
+			break
+		case UserPropertyIds["TopicAliasMaximumId"]:
+			if c.property.bHasTopicAliasMax {
+				return ErrorProtocolViolation
+			}
+
+			c.property.TopicAliasMax, err = decodeUint16(b)
+			if err != nil {
+				return err
+			}
+
+			remainingLen -= byte(reflect.TypeOf(c.property.TopicAliasMax).Size())
+			break
+		case UserPropertyIds["RequestResponseInformationId"]:
+			if c.property.bHasReqRespInfo {
+				return ErrorProtocolViolation
+			}
+
+			c.property.RequestRespInfo, err = decodeByte(b)
+			if err != nil {
+				return err
+			}
+
+			remainingLen -= byte(reflect.TypeOf(c.property.RequestRespInfo).Size())
+
+			break
+		case UserPropertyIds["RequestProblemInformationId"]:
+			if c.property.bHasReqProblemInfo {
+				return ErrorProtocolViolation
+			}
+
+			c.property.RequestProblemInfo, err = decodeByte(b)
+			if err != nil {
+				return err
+			}
+
+			remainingLen -= byte(reflect.TypeOf(c.property.RequestProblemInfo).Size())
+			break
+		case UserPropertyIds["UserPropertyId"]:
+
+			field, err := decodeString(b)
+			if err != nil {
+				return err
+			}
+
+			c.property.UserProperties = append(c.property.UserProperties, field)
+
+			break
+		case UserPropertyIds["AuthenticationMethodId"]:
+
+			c.property.AuthMethod, err = decodeString(b)
+			if err != nil {
+				return err
+			}
+
+			remainingLen -= byte(len(c.property.AuthMethod))
+
+			break
+		case UserPropertyIds["AuthenticationDataId"]:
+			if !c.property.bHasAuthMethod || c.property.bHasAuthData {
+				return ErrorProtocolViolation
+			}
+
+			c.property.AuthData, err = decodeBytes(b)
+			if err != nil {
+				return err
+			}
+
+			remainingLen -= byte(len(c.property.AuthData))
+
+			break
+		}
+	}
+
+	return nil
+}
+
 // Validate performs validation of the fields of a Connect packet
-func (c *ConnectPacket) Validate() byte {
+func (c *ConnectPacket) Validate(v5 bool) byte {
 	if c.PasswordFlag && !c.UsernameFlag {
 		return ErrRefusedBadUsernameOrPassword
 	}
@@ -177,16 +358,27 @@ func (c *ConnectPacket) Validate() byte {
 		// Bad reserved bit
 		return ErrProtocolViolation
 	}
-	if (c.ProtocolName == "MQIsdp" && c.ProtocolVersion != 3) ||
-		(c.ProtocolName == "MQTT" && c.ProtocolVersion != 4) ||
-		(c.ProtocolName == "MQTT" && c.ProtocolVersion != 5) {
+
+	if v5 && (c.ProtocolName != "MQTT" || c.ProtocolVersion != 5) {
+		// Mismatched or unsupported protocol version
+		return ErrRefusedBadProtocolVersion
+	} else if (c.ProtocolName == "MQIsdp" && c.ProtocolVersion != 3) ||
+		(c.ProtocolName == "MQTT" && c.ProtocolVersion != 4) {
 		// Mismatched or unsupported protocol version
 		return ErrRefusedBadProtocolVersion
 	}
+
+	if v5 {
+		if c.property.MaxPacketSize == 0 || c.property.ReceiveMaximum == 0 {
+			return ErrProtocolViolation
+		}
+	}
+
 	if c.ProtocolName != "MQIsdp" && c.ProtocolName != "MQTT" {
 		// Bad protocol name
 		return ErrProtocolViolation
 	}
+
 	if len(c.ClientIdentifier) > 65535 || len(c.Username) > 65535 || len(c.Password) > 65535 {
 		// Bad size field
 		return ErrProtocolViolation
@@ -195,6 +387,7 @@ func (c *ConnectPacket) Validate() byte {
 		// Bad client identifier
 		return ErrRefusedIDRejected
 	}
+
 	return Accepted
 }
 
