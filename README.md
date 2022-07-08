@@ -7,7 +7,7 @@
 
 ## About
 
-Golang MQTT Broker, Version 3.1.1, and Compatible
+Golang MQTT Broker, Version 3.1.1/Version 5, and Compatible
 for [eclipse paho client](https://github.com/eclipse?utf8=%E2%9C%93&q=mqtt&type=&language=) and mosquitto-client
 
 ## RUNNING
