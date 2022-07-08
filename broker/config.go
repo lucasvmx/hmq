@@ -149,7 +149,7 @@ func ConfigureConfig(args []string) (*Config, error) {
 		return nil, err
 	}
 
-	if config.MqttVer != MqttVersion311 && config.MqttVer == MqttVersion5 {
+	if config.MqttVer != MqttVersion311 && config.MqttVer != MqttVersion5 {
 		return nil, fmt.Errorf("Invalid MQTT version: '%v'. Please, use 'v311' or 'v5'", config.MqttVer)
 	}
 
