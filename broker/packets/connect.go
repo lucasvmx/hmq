@@ -25,25 +25,37 @@ import (
 
 type ConnectProperty struct {
 	// Used in MQTT v5
-	PropertiesLen      byte
-	SessExpInterval    uint32
-	ReceiveMaximum     uint16
-	MaxPacketSize      uint32
-	TopicAliasMax      uint16
-	RequestRespInfo    byte
-	RequestProblemInfo byte
-	UserProperties     []string
-	AuthMethod         string
-	AuthData           []byte
+	PropertiesLen          byte
+	SessExpInterval        uint32
+	ReceiveMaximum         uint16
+	MaxPacketSize          uint32
+	TopicAliasMax          uint16
+	RequestRespInfo        byte
+	RequestProblemInfo     byte
+	UserProperties         []string
+	AuthMethod             string
+	AuthData               []byte
+	WillDelayInterval      uint32
+	PayloadFormatIndicator byte
+	MessageExpiryInterval  uint32
+	ContentType            string
+	ResponseTopic          string
+	CorrelationData        []byte
 
 	// Control flags
-	bHasSessExp        bool
-	bHasRecvMax        bool
-	bHasTopicAliasMax  bool
-	bHasReqRespInfo    bool
-	bHasReqProblemInfo bool
-	bHasAuthMethod     bool
-	bHasAuthData       bool
+	bHasSessExp                bool
+	bHasRecvMax                bool
+	bHasTopicAliasMax          bool
+	bHasReqRespInfo            bool
+	bHasReqProblemInfo         bool
+	bHasAuthMethod             bool
+	bHasAuthData               bool
+	bHasWillDelayInterval      bool
+	bHasPayloadFormatIndicator bool
+	bHasMessageExpiryInterval  bool
+	bHasContentType            bool
+	bHasResponseTopic          bool
+	bHasCorrelationData        bool
 }
 
 // ConnectPacket is an internal representation of the fields of the
@@ -81,11 +93,17 @@ var (
 		"TopicAliasMaximumId":          0x22,
 		"RequestResponseInformationId": 0x19,
 		"RequestProblemInformationId":  0x17,
-		"UserPropertyId":               0x26,
 		"AuthenticationMethodId":       0x15,
 		"AuthenticationDataId":         0x16,
 
 		// CONNECT payloads
+		"WillDelayInterval":      0x18,
+		"PayloadFormatIndicator": 0x01,
+		"MessageExpiryInterval":  0x02,
+		"ContentType":            0x03,
+		"ResponseTopic":          0x08,
+		"CorrelationData":        0x09,
+		"UserPropertyId":         0x26,
 	}
 )
 
@@ -309,6 +327,8 @@ func (c *ConnectPacket) UnpackProperties(b io.Reader) error {
 			}
 
 			remainingLen -= byte(reflect.TypeOf(c.property.RequestProblemInfo).Size())
+			c.property.bHasReqProblemInfo = true
+
 			break
 		case UserPropertyIds["UserPropertyId"]:
 
@@ -341,6 +361,101 @@ func (c *ConnectPacket) UnpackProperties(b io.Reader) error {
 			}
 
 			remainingLen -= byte(len(c.property.AuthData))
+
+			break
+
+		case UserPropertyIds["WillDelayInterval"]:
+
+			if c.property.bHasWillDelayInterval {
+				return ErrorProtocolViolation
+			}
+
+			c.property.WillDelayInterval, err = decodeUint32(b)
+
+			if err != nil {
+				return err
+			}
+
+			c.property.bHasWillDelayInterval = true
+			remainingLen -= byte(reflect.TypeOf(c.property.WillDelayInterval).Size())
+
+			break
+
+		case UserPropertyIds["PayloadFormatIndicator"]:
+
+			if c.property.bHasPayloadFormatIndicator {
+				return ErrorProtocolViolation
+			}
+
+			c.property.PayloadFormatIndicator, err = decodeByte(b)
+			if err != nil {
+				return err
+			}
+
+			c.property.bHasPayloadFormatIndicator = true
+			remainingLen -= byte(reflect.TypeOf(c.property.bHasPayloadFormatIndicator).Size())
+			break
+
+		case UserPropertyIds["MessageExpiryInterval"]:
+
+			if c.property.bHasMessageExpiryInterval {
+				return ErrorProtocolViolation
+			}
+
+			c.property.MessageExpiryInterval, err = decodeUint32(b)
+			if err != nil {
+				return err
+			}
+
+			c.property.bHasMessageExpiryInterval = true
+			remainingLen -= byte(reflect.TypeOf(c.property.MessageExpiryInterval).Size())
+			break
+
+		case UserPropertyIds["ContentType"]:
+
+			if c.property.bHasContentType {
+				return ErrorProtocolViolation
+
+			}
+
+			c.property.ContentType, err = decodeString(b)
+			if err != nil {
+				return err
+			}
+
+			c.property.bHasContentType = true
+			remainingLen -= byte(len(c.property.ContentType))
+			break
+
+		case UserPropertyIds["ResponseTopic"]:
+
+			if c.property.bHasResponseTopic {
+				return ErrorProtocolViolation
+			}
+
+			c.property.ResponseTopic, err = decodeString(b)
+			if err != nil {
+				return err
+			}
+
+			c.property.bHasResponseTopic = true
+			remainingLen -= byte(len(c.property.ResponseTopic))
+
+			break
+
+		case UserPropertyIds["CorrelationData"]:
+
+			if c.property.bHasCorrelationData {
+				return ErrorProtocolViolation
+			}
+
+			c.property.CorrelationData, err = decodeBytes(b)
+			if err != nil {
+				return err
+			}
+
+			c.property.bHasCorrelationData = true
+			remainingLen -= byte(len(c.property.CorrelationData))
 
 			break
 		}
